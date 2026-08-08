@@ -50,6 +50,14 @@ axios.interceptors.request.use(
 );
 
 export default function App() {
+  const getImageUrl = (imagePath) => {
+    if (!imagePath) return '';
+    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+      return imagePath;
+    }
+    return `${BASE_URL}/images/${imagePath}`;
+  };
+
   // Custom Alert helper for Web compat
   const showAlert = (title, message, buttons) => {
     if (Platform.OS === 'web') {
@@ -513,7 +521,7 @@ export default function App() {
                   <TouchableOpacity activeOpacity={0.95} onPress={() => setFullscreenImageVisible(true)} style={{ width: '100%', height: '100%' }}>
                     <Image
                       source={{
-                        uri: `${BASE_URL}/images/${selectedCattle.imagePath}`,
+                        uri: getImageUrl(selectedCattle.imagePath),
                         headers: { 'Bypass-Tunnel-Reminder': 'true' }
                       }}
                       style={styles.detailImage}
@@ -719,7 +727,7 @@ export default function App() {
             {selectedCattle && selectedCattle.imagePath ? (
               <Image
                 source={{
-                  uri: `${BASE_URL}/images/${selectedCattle.imagePath}`,
+                  uri: getImageUrl(selectedCattle.imagePath),
                   headers: { 'Bypass-Tunnel-Reminder': 'true' }
                 }}
                 style={styles.fullscreenImage}
@@ -1013,7 +1021,7 @@ export default function App() {
                         {c.imagePath !== '' ? (
                           <Image
                             source={{
-                              uri: `${BASE_URL}/images/${c.imagePath}`,
+                              uri: getImageUrl(c.imagePath),
                               headers: { 'Bypass-Tunnel-Reminder': 'true' }
                             }}
                             style={[styles.cattleThumbnail, { marginRight: 0 }]}
