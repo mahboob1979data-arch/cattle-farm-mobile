@@ -915,7 +915,7 @@ export default function App() {
         <Text style={styles.modalListHeader}>Weight Group Distribution</Text>
         <View style={styles.distributionContainer}>
           <View style={styles.distRow}>
-            <Text style={styles.distLabel}>Light (< 200 kg)</Text>
+            <Text style={styles.distLabel}>{"Light (< 200 kg)"}</Text>
             <View style={styles.distBarBg}>
               <View style={[styles.distBarFill, { width: `${activeList.length > 0 ? (g1 / activeList.length) * 100 : 0}%`, backgroundColor: '#34d399' }]} />
             </View>
@@ -936,7 +936,7 @@ export default function App() {
             <Text style={styles.distVal}>{g3} Head</Text>
           </View>
           <View style={styles.distRow}>
-            <Text style={styles.distLabel}>Super Heavy (>300 kg)</Text>
+            <Text style={styles.distLabel}>{"Super Heavy (> 300 kg)"}</Text>
             <View style={styles.distBarBg}>
               <View style={[styles.distBarFill, { width: `${activeList.length > 0 ? (g4 / activeList.length) * 100 : 0}%`, backgroundColor: '#065f46' }]} />
             </View>
