@@ -122,6 +122,11 @@ export default function App() {
   const [cattleForm, setCattleForm] = useState({ tagId: '', breed: '', gender: 'Steer', purchaseDate: new Date().toISOString().split('T')[0], purchaseWeight: '', purchasePrice: '', isEidHold: false });
   const [expenseForm, setExpenseForm] = useState({ date: new Date().toISOString().split('T')[0], type: 'Feed', category: 'Transport', feedType: 'Cattle Feed Wanda (Concentrate)', quantityFed: '', unitCost: '', amount: '', tagId: '', description: '', notes: '' });
   const [sellForm, setSellForm] = useState({ tagId: '', saleDate: new Date().toISOString().split('T')[0], saleWeight: '', salePrice: '' });
+  
+  // KPI Modal details view states
+  const [activeKpiModal, setActiveKpiModal] = useState(null); // herd_count, active_weight, avg_weight, weight_gain, expenses, sold, revenue, net_position
+  const [feedLogs, setFeedLogs] = useState([]);
+  const [expenseLogs, setExpenseLogs] = useState({ expenses: [], medical: [] });
 
   // Initial Fetch & Local Cache Check
   useEffect(() => {
@@ -151,6 +156,18 @@ export default function App() {
         setCattle(cattleRes.data.cattle);
         await AsyncStorage.setItem(`cattle_${activeFlock}`, JSON.stringify(cattleRes.data.cattle));
       }
+
+      const feedRes = await axios.get(`${API_URL}/feed/logs`);
+      if (feedRes.data.success) {
+        setFeedLogs(feedRes.data.logs);
+        await AsyncStorage.setItem('feedLogs', JSON.stringify(feedRes.data.logs));
+      }
+
+      const expRes = await axios.get(`${API_URL}/expenses/logs`);
+      if (expRes.data.success) {
+        setExpenseLogs({ expenses: expRes.data.expenses, medical: expRes.data.medical });
+        await AsyncStorage.setItem('expenseLogs', JSON.stringify({ expenses: expRes.data.expenses, medical: expRes.data.medical }));
+      }
     } catch (error) {
       console.log('API connection failed, loading offline fallback.', error);
       setIsOnline(false);
@@ -165,9 +182,13 @@ export default function App() {
       const offlineKpis = await AsyncStorage.getItem(`kpis_${activeFlock}`);
       const offlineCattle = await AsyncStorage.getItem(`cattle_${activeFlock}`);
       const offlineFlocks = await AsyncStorage.getItem('flocksList');
+      const offlineFeed = await AsyncStorage.getItem('feedLogs');
+      const offlineExp = await AsyncStorage.getItem('expenseLogs');
       if (offlineKpis) setKpis(JSON.parse(offlineKpis));
       if (offlineCattle) setCattle(JSON.parse(offlineCattle));
       if (offlineFlocks) setFlocksList(JSON.parse(offlineFlocks));
+      if (offlineFeed) setFeedLogs(JSON.parse(offlineFeed));
+      if (offlineExp) setExpenseLogs(JSON.parse(offlineExp));
     } catch (e) {
       console.error('Error loading cached data', e);
     }
@@ -791,7 +812,379 @@ export default function App() {
 
       </SafeAreaView>
     );
-  }
+  // KPI Modal Detail Renderer Helpers
+  const [expenseTab, setExpenseTab] = useState('feed'); // feed, ops, medical
+
+  const renderHerdCountModal = () => {
+    const activeList = cattle.filter(c => c.status === 'Active');
+    const soldList = cattle.filter(c => c.status === 'Sold');
+    
+    return (
+      <View style={styles.modalSubSection}>
+        <View style={styles.modalStatsRow}>
+          <View style={styles.modalStatBox}>
+            <Text style={styles.modalStatVal}>{cattle.length}</Text>
+            <Text style={styles.modalStatLbl}>Total Herd</Text>
+          </View>
+          <View style={styles.modalStatBox}>
+            <Text style={[styles.modalStatVal, { color: '#059669' }]}>{activeList.length}</Text>
+            <Text style={styles.modalStatLbl}>Active</Text>
+          </View>
+          <View style={styles.modalStatBox}>
+            <Text style={[styles.modalStatVal, { color: '#0284c7' }]}>{soldList.length}</Text>
+            <Text style={styles.modalStatLbl}>Sold</Text>
+          </View>
+        </View>
+
+        <Text style={styles.modalListHeader}>All Herd Animals</Text>
+        {cattle.map(item => (
+          <TouchableOpacity
+            key={item.tagId}
+            style={styles.modalListItem}
+            onPress={() => {
+              setActiveKpiModal(null);
+              setSelectedCattleTag(item.tagId);
+            }}
+          >
+            <View>
+              <Text style={styles.modalItemTitle}>{item.tagId}</Text>
+              <Text style={styles.modalItemSub}>{item.breed} • {item.gender}</Text>
+            </View>
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={[styles.modalItemBadge, { backgroundColor: item.status === 'Active' ? '#d1fae5' : '#e0f2fe', color: item.status === 'Active' ? '#065f46' : '#0369a1' }]}>
+                {item.status}
+              </Text>
+              <Text style={styles.modalItemDesc}>{item.currentWeight} kg</Text>
+            </View>
+          </TouchableOpacity>
+        ))}
+      </View>
+    );
+  };
+
+  const renderActiveWeightModal = () => {
+    const activeList = cattle.filter(c => c.status === 'Active').sort((a, b) => b.currentWeight - a.currentWeight);
+    return (
+      <View style={styles.modalSubSection}>
+        <View style={styles.modalStatBoxFull}>
+          <Text style={styles.modalStatVal}>{kpis.totalActiveWeight ? kpis.totalActiveWeight.toLocaleString() : 0} kg</Text>
+          <Text style={styles.modalStatLbl}>Total Active Herd Weight</Text>
+        </View>
+
+        <Text style={styles.modalListHeader}>Active Weight Registry (Sorted Heavy to Light)</Text>
+        {activeList.map(item => (
+          <TouchableOpacity
+            key={item.tagId}
+            style={styles.modalListItem}
+            onPress={() => {
+              setActiveKpiModal(null);
+              setSelectedCattleTag(item.tagId);
+            }}
+          >
+            <View>
+              <Text style={styles.modalItemTitle}>{item.tagId}</Text>
+              <Text style={styles.modalItemSub}>{item.breed}</Text>
+            </View>
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={[styles.modalItemVal, { fontSize: 16, fontWeight: 'bold' }]}>{item.currentWeight} kg</Text>
+              <Text style={styles.modalItemDesc}>Gain: {item.currentWeight - item.purchaseWeight} kg</Text>
+            </View>
+          </TouchableOpacity>
+        ))}
+      </View>
+    );
+  };
+
+  const renderAvgWeightModal = () => {
+    const activeList = cattle.filter(c => c.status === 'Active');
+    const avg = activeList.length > 0 ? Math.round(kpis.totalActiveWeight / activeList.length) : 0;
+    
+    const g1 = activeList.filter(c => c.currentWeight < 200).length;
+    const g2 = activeList.filter(c => c.currentWeight >= 200 && c.currentWeight <= 250).length;
+    const g3 = activeList.filter(c => c.currentWeight > 250 && c.currentWeight <= 300).length;
+    const g4 = activeList.filter(c => c.currentWeight > 300).length;
+
+    return (
+      <View style={styles.modalSubSection}>
+        <View style={styles.modalStatBoxFull}>
+          <Text style={styles.modalStatVal}>{avg} kg</Text>
+          <Text style={styles.modalStatLbl}>Average Weight per Head</Text>
+        </View>
+
+        <Text style={styles.modalListHeader}>Weight Group Distribution</Text>
+        <View style={styles.distributionContainer}>
+          <View style={styles.distRow}>
+            <Text style={styles.distLabel}>Light (< 200 kg)</Text>
+            <View style={styles.distBarBg}>
+              <View style={[styles.distBarFill, { width: `${activeList.length > 0 ? (g1 / activeList.length) * 100 : 0}%`, backgroundColor: '#34d399' }]} />
+            </View>
+            <Text style={styles.distVal}>{g1} Head</Text>
+          </View>
+          <View style={styles.distRow}>
+            <Text style={styles.distLabel}>Medium (200-250 kg)</Text>
+            <View style={styles.distBarBg}>
+              <View style={[styles.distBarFill, { width: `${activeList.length > 0 ? (g2 / activeList.length) * 100 : 0}%`, backgroundColor: '#10b981' }]} />
+            </View>
+            <Text style={styles.distVal}>{g2} Head</Text>
+          </View>
+          <View style={styles.distRow}>
+            <Text style={styles.distLabel}>Heavy (250-300 kg)</Text>
+            <View style={styles.distBarBg}>
+              <View style={[styles.distBarFill, { width: `${activeList.length > 0 ? (g3 / activeList.length) * 100 : 0}%`, backgroundColor: '#059669' }]} />
+            </View>
+            <Text style={styles.distVal}>{g3} Head</Text>
+          </View>
+          <View style={styles.distRow}>
+            <Text style={styles.distLabel}>Super Heavy (>300 kg)</Text>
+            <View style={styles.distBarBg}>
+              <View style={[styles.distBarFill, { width: `${activeList.length > 0 ? (g4 / activeList.length) * 100 : 0}%`, backgroundColor: '#065f46' }]} />
+            </View>
+            <Text style={styles.distVal}>{g4} Head</Text>
+          </View>
+        </View>
+      </View>
+    );
+  };
+
+  const renderWeightGainModal = () => {
+    const activeList = cattle.filter(c => c.status === 'Active')
+      .map(item => {
+        const gain = item.currentWeight - item.purchaseWeight;
+        const days = Math.max(1, Math.round((new Date() - new Date(item.purchaseDate)) / (1000 * 60 * 60 * 24)));
+        const adg = days > 0 ? (gain / days).toFixed(2) : '0.00';
+        return { ...item, gain, days, adg };
+      })
+      .sort((a, b) => b.gain - a.gain);
+
+    return (
+      <View style={styles.modalSubSection}>
+        <View style={styles.modalStatBoxFull}>
+          <Text style={styles.modalStatVal}>{kpis.totalWeightGain} kg</Text>
+          <Text style={styles.modalStatLbl}>Total Weight Gain across Herd</Text>
+        </View>
+
+        <Text style={styles.modalListHeader}>Growth Performance Leaders (ADG)</Text>
+        {activeList.map(item => (
+          <TouchableOpacity
+            key={item.tagId}
+            style={styles.modalListItem}
+            onPress={() => {
+              setActiveKpiModal(null);
+              setSelectedCattleTag(item.tagId);
+            }}
+          >
+            <View>
+              <Text style={styles.modalItemTitle}>{item.tagId}</Text>
+              <Text style={styles.modalItemSub}>{item.breed} • {item.days} days in farm</Text>
+            </View>
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={[styles.modalItemVal, { color: item.gain >= 0 ? '#059669' : '#dc2626', fontWeight: 'bold' }]}>
+                +{item.gain} kg
+              </Text>
+              <Text style={[styles.modalItemDesc, { color: '#059669', fontWeight: '500' }]}>{item.adg} kg/day ADG</Text>
+            </View>
+          </TouchableOpacity>
+        ))}
+      </View>
+    );
+  };
+
+  const renderExpensesModal = () => {
+    const totalExpenses = kpis.totalFeedCost + kpis.totalOtherExpenses;
+    return (
+      <View style={styles.modalSubSection}>
+        <View style={styles.modalStatBoxFull}>
+          <Text style={styles.modalStatVal}>Rs. {totalExpenses.toLocaleString()}</Text>
+          <Text style={styles.modalStatLbl}>Total Expenses (Feed + Operational + Medical)</Text>
+        </View>
+
+        <View style={[styles.filterButtonRow, { marginBottom: 16, marginTop: 12 }]}>
+          <TouchableOpacity
+            onPress={() => setExpenseTab('feed')}
+            style={[styles.filterChip, expenseTab === 'feed' && styles.activeFilterChip, { marginRight: 6 }]}
+          >
+            <Text style={[styles.filterChipText, expenseTab === 'feed' && styles.activeFilterChipText]}>Feed (Rs. {kpis.totalFeedCost.toLocaleString()})</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setExpenseTab('ops')}
+            style={[styles.filterChip, expenseTab === 'ops' && styles.activeFilterChip, { marginRight: 6 }]}
+          >
+            <Text style={[styles.filterChipText, expenseTab === 'ops' && styles.activeFilterChipText]}>Ops (Rs. {expenseLogs.expenses ? expenseLogs.expenses.reduce((s, i) => s + Number(i.amount), 0).toLocaleString() : 0})</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setExpenseTab('medical')}
+            style={[styles.filterChip, expenseTab === 'medical' && styles.activeFilterChip]}
+          >
+            <Text style={[styles.filterChipText, expenseTab === 'medical' && styles.activeFilterChipText]}>Medical (Rs. {expenseLogs.medical ? expenseLogs.medical.reduce((s, i) => s + Number(i.cost), 0).toLocaleString() : 0})</Text>
+          </TouchableOpacity>
+        </View>
+
+        {expenseTab === 'feed' && (
+          <View>
+            <Text style={styles.modalListHeader}>Feed Consumption History</Text>
+            {feedLogs.length > 0 ? (
+              feedLogs.map((item, idx) => (
+                <View key={idx} style={styles.modalListItemPlain}>
+                  <View>
+                    <Text style={styles.modalItemTitle}>{item.feed_type || item.feedType}</Text>
+                    <Text style={styles.modalItemSub}>{item.date || item.feedDate} • {item.quantity_fed || item.quantityFed} bags @ Rs. {item.unit_cost || item.unitCost}</Text>
+                  </View>
+                  <Text style={[styles.modalItemVal, { fontWeight: 'bold' }]}>
+                    Rs. {((item.quantity_fed || item.quantityFed) * (item.unit_cost || item.unitCost)).toLocaleString()}
+                  </Text>
+                </View>
+              ))
+            ) : (
+              <Text style={styles.noHistoryText}>No feed logs found.</Text>
+            )}
+          </View>
+        )}
+
+        {expenseTab === 'ops' && (
+          <View>
+            <Text style={styles.modalListHeader}>General & Operational Expenses</Text>
+            {expenseLogs.expenses && expenseLogs.expenses.length > 0 ? (
+              expenseLogs.expenses.map((item, idx) => (
+                <View key={idx} style={styles.modalListItemPlain}>
+                  <View>
+                    <Text style={styles.modalItemTitle}>{item.category} {item.tag_id ? `(Tag: ${item.tag_id})` : ''}</Text>
+                    <Text style={styles.modalItemSub}>{item.date || item.expenseDate} • {item.description || 'No description'}</Text>
+                  </View>
+                  <Text style={[styles.modalItemVal, { fontWeight: 'bold' }]}>
+                    Rs. {Number(item.amount).toLocaleString()}
+                  </Text>
+                </View>
+              ))
+            ) : (
+              <Text style={styles.noHistoryText}>No operational expenses found.</Text>
+            )}
+          </View>
+        )}
+
+        {expenseTab === 'medical' && (
+          <View>
+            <Text style={styles.modalListHeader}>Medical Treatment Logs</Text>
+            {expenseLogs.medical && expenseLogs.medical.length > 0 ? (
+              expenseLogs.medical.map((item, idx) => (
+                <View key={idx} style={styles.modalListItemPlain}>
+                  <View>
+                    <Text style={styles.modalItemTitle}>Veterinary Care: {item.tag_id}</Text>
+                    <Text style={styles.modalItemSub}>{item.date || item.logDate} • {item.diagnosis || 'Checkup'} ({item.treatment})</Text>
+                  </View>
+                  <Text style={[styles.modalItemVal, { fontWeight: 'bold' }]}>
+                    Rs. {Number(item.cost).toLocaleString()}
+                  </Text>
+                </View>
+              ))
+            ) : (
+              <Text style={styles.noHistoryText}>No medical logs found.</Text>
+            )}
+          </View>
+        )}
+      </View>
+    );
+  };
+
+  const renderSalesModal = (onlyRevenue) => {
+    const soldList = cattle.filter(c => c.status === 'Sold').sort((a, b) => new Date(b.saleDate) - new Date(a.saleDate));
+    return (
+      <View style={styles.modalSubSection}>
+        <View style={styles.modalStatsRow}>
+          <View style={styles.modalStatBox}>
+            <Text style={styles.modalStatVal}>{soldList.length}</Text>
+            <Text style={styles.modalStatLbl}>Sold Head</Text>
+          </View>
+          <View style={styles.modalStatBoxFullCompact}>
+            <Text style={[styles.modalStatVal, { color: '#059669' }]}>Rs. {kpis.totalRevenue ? kpis.totalRevenue.toLocaleString() : 0}</Text>
+            <Text style={styles.modalStatLbl}>Total Sales Revenue</Text>
+          </View>
+        </View>
+
+        <Text style={styles.modalListHeader}>Sales Registry Ledger</Text>
+        {soldList.map(item => {
+          const profit = item.salePrice - ((item.purchasePrice || 0) + (item.allocatedFeedCost || 0) + (item.medicalCost || 0));
+          return (
+            <TouchableOpacity
+              key={item.tagId}
+              style={styles.modalListItem}
+              onPress={() => {
+                setActiveKpiModal(null);
+                setSelectedCattleTag(item.tagId);
+              }}
+            >
+              <View>
+                <Text style={styles.modalItemTitle}>{item.tagId}</Text>
+                <Text style={styles.modalItemSub}>{item.breed} • Sold: {item.saleDate}</Text>
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={[styles.modalItemVal, { fontWeight: 'bold' }]}>Rs. {item.salePrice ? item.salePrice.toLocaleString() : 0}</Text>
+                {!onlyRevenue && (
+                  <Text style={[styles.modalItemDesc, { color: profit >= 0 ? '#059669' : '#dc2626', fontWeight: '500' }]}>
+                    {profit >= 0 ? '+' : ''}Rs. {Math.round(profit).toLocaleString()}
+                  </Text>
+                )}
+              </View>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    );
+  };
+
+  const renderNetPositionModal = () => {
+    const totalExpenses = kpis.totalFeedCost + kpis.totalOtherExpenses;
+    const netPosition = kpis.totalRevenue - kpis.totalPurchaseCost - totalExpenses;
+    
+    return (
+      <View style={styles.modalSubSection}>
+        <View style={styles.modalStatBoxFull}>
+          <Text style={[styles.modalStatVal, { color: netPosition >= 0 ? '#059669' : '#dc2626' }]}>
+            Rs. {netPosition.toLocaleString()}
+          </Text>
+          <Text style={styles.modalStatLbl}>Net Profit / Loss Position</Text>
+        </View>
+
+        <Text style={styles.modalListHeader}>Profit & Loss Statement (P&L)</Text>
+        <View style={styles.plContainer}>
+          <View style={styles.plRow}>
+            <Text style={styles.plLabel}>Total Revenue (Cattle Sales)</Text>
+            <Text style={[styles.plVal, { color: '#059669' }]}>+ Rs. {kpis.totalRevenue.toLocaleString()}</Text>
+          </View>
+          
+          <View style={[styles.plRow, { borderBottomWidth: 1, borderColor: '#cbd5e1', paddingBottom: 4, marginBottom: 4 }]}>
+            <Text style={styles.plLabelSub}>From {cattle.filter(c => c.status === 'Sold').length} sold heads</Text>
+          </View>
+
+          <View style={styles.plRow}>
+            <Text style={styles.plLabel}>Cattle Purchase Costs (Active Herd)</Text>
+            <Text style={[styles.plVal, { color: '#dc2626' }]}>- Rs. {kpis.totalPurchaseCost.toLocaleString()}</Text>
+          </View>
+
+          <View style={styles.plRow}>
+            <Text style={styles.plLabel}>Feed Wanda Consumption Costs</Text>
+            <Text style={[styles.plVal, { color: '#dc2626' }]}>- Rs. {kpis.totalFeedCost.toLocaleString()}</Text>
+          </View>
+
+          <View style={styles.plRow}>
+            <Text style={styles.plLabel}>Operational & Other Overhead Costs</Text>
+            <Text style={[styles.plVal, { color: '#dc2626' }]}>- Rs. {expenseLogs.expenses ? expenseLogs.expenses.reduce((s, i) => s + Number(i.amount), 0).toLocaleString() : 0}</Text>
+          </View>
+
+          <View style={styles.plRow}>
+            <Text style={styles.plLabel}>Veterinary & Medical Treatment Costs</Text>
+            <Text style={[styles.plVal, { color: '#dc2626' }]}>- Rs. {expenseLogs.medical ? expenseLogs.medical.reduce((s, i) => s + Number(i.cost), 0).toLocaleString() : 0}</Text>
+          </View>
+
+          <View style={[styles.plRow, { borderTopWidth: 2, borderColor: '#475569', paddingTop: 12, marginTop: 12 }]}>
+            <Text style={[styles.plLabel, { fontWeight: 'bold', fontSize: 16 }]}>Net Profit / Loss</Text>
+            <Text style={[styles.plVal, { fontWeight: 'bold', fontSize: 16, color: netPosition >= 0 ? '#059669' : '#dc2626' }]}>
+              Rs. {netPosition.toLocaleString()}
+            </Text>
+          </View>
+        </View>
+      </View>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -876,65 +1269,65 @@ export default function App() {
           <View>
             {/* KPI GRID */}
             <View style={styles.kpiGrid}>
-              <View style={styles.kpiCard}>
+              <TouchableOpacity activeOpacity={0.7} style={styles.kpiCard} onPress={() => setActiveKpiModal('herd_count')}>
                 <Scale size={24} color="#059669" />
                 <Text style={styles.kpiLabel}>Herd Count</Text>
                 <Text style={styles.kpiValue}>{kpis.totalHerdCount} Head</Text>
                 <Text style={styles.kpiSub}>{kpis.activeCattle} Active / {kpis.soldCattle} Sold</Text>
-              </View>
+              </TouchableOpacity>
 
-              <View style={styles.kpiCard}>
+              <TouchableOpacity activeOpacity={0.7} style={styles.kpiCard} onPress={() => setActiveKpiModal('active_weight')}>
                 <Scale size={24} color="#0284c7" />
                 <Text style={styles.kpiLabel}>Total Active Weight</Text>
                 <Text style={styles.kpiValue}>{kpis.totalActiveWeight ? kpis.totalActiveWeight.toLocaleString() : 0} kg</Text>
                 <Text style={styles.kpiSub}>Active herd weight</Text>
-              </View>
+              </TouchableOpacity>
 
-              <View style={styles.kpiCard}>
+              <TouchableOpacity activeOpacity={0.7} style={styles.kpiCard} onPress={() => setActiveKpiModal('avg_weight')}>
                 <Activity size={24} color="#0891b2" />
                 <Text style={styles.kpiLabel}>Average Weight</Text>
                 <Text style={styles.kpiValue}>{kpis.activeCattle > 0 ? Math.round(kpis.totalActiveWeight / kpis.activeCattle) : 0} kg</Text>
                 <Text style={styles.kpiSub}>Avg size per active head</Text>
-              </View>
+              </TouchableOpacity>
 
-              <View style={styles.kpiCard}>
+              <TouchableOpacity activeOpacity={0.7} style={styles.kpiCard} onPress={() => setActiveKpiModal('weight_gain')}>
                 <TrendingUp size={24} color="#059669" />
                 <Text style={styles.kpiLabel}>Total Weight Gain</Text>
                 <Text style={[styles.kpiValue, { color: kpis.totalWeightGain >= 0 ? '#059669' : '#dc2626' }]}>
                   {kpis.totalWeightGain} kg
                 </Text>
                 <Text style={styles.kpiSub}>Across active batch</Text>
-              </View>
+              </TouchableOpacity>
 
-              <View style={styles.kpiCard}>
+              <TouchableOpacity activeOpacity={0.7} style={styles.kpiCard} onPress={() => setActiveKpiModal('expenses')}>
                 <Image source={require('./assets/rs_sack.png')} style={{ width: 28, height: 28, marginBottom: 4 }} resizeMode="contain" />
                 <Text style={styles.kpiLabel}>Total Expenses</Text>
                 <Text style={styles.kpiValue}>Rs. {(kpis.totalFeedCost + kpis.totalOtherExpenses).toLocaleString()}</Text>
                 <Text style={styles.kpiSub}>Feed + Ops (Corrected)</Text>
-              </View>
+              </TouchableOpacity>
 
-              <View style={styles.kpiCard}>
+              <TouchableOpacity activeOpacity={0.7} style={styles.kpiCard} onPress={() => setActiveKpiModal('sold')}>
                 <ShoppingBag size={24} color="#7c3aed" />
                 <Text style={styles.kpiLabel}>Total Sold</Text>
                 <Text style={styles.kpiValue}>{kpis.soldCattle} Head</Text>
                 <Text style={styles.kpiSub}>Cattle sold to date</Text>
-              </View>
+              </TouchableOpacity>
 
-              <View style={styles.kpiCard}>
+              <TouchableOpacity activeOpacity={0.7} style={styles.kpiCard} onPress={() => setActiveKpiModal('revenue')}>
                 <DollarSign size={24} color="#059669" />
                 <Text style={styles.kpiLabel}>Total Revenue</Text>
                 <Text style={styles.kpiValue}>Rs. {kpis.totalRevenue ? kpis.totalRevenue.toLocaleString() : '0'}</Text>
                 <Text style={styles.kpiSub}>From sold registry</Text>
-              </View>
+              </TouchableOpacity>
 
-              <View style={styles.kpiCard}>
+              <TouchableOpacity activeOpacity={0.7} style={styles.kpiCard} onPress={() => setActiveKpiModal('net_position')}>
                 <Briefcase size={24} color="#059669" />
                 <Text style={styles.kpiLabel}>Net Position</Text>
                 <Text style={[styles.kpiValue, { color: kpis.netProfitLoss >= 0 ? '#059669' : '#dc2626' }]}>
                   Rs. {kpis.netProfitLoss.toLocaleString()}
                 </Text>
                 <Text style={styles.kpiSub}>Revenue - Total costs</Text>
-              </View>
+              </TouchableOpacity>
             </View>
 
             {/* EXPENSE BREAKDOWN BAR */}
@@ -1341,6 +1734,47 @@ export default function App() {
               </View>
             </View>
           </ScrollView>
+        </View>
+      </Modal>
+
+      {/* MODAL: KPI DETAILS */}
+      <Modal
+        visible={activeKpiModal !== null}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setActiveKpiModal(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxHeight: '90%', width: '95%' }]}>
+            {/* Modal Header */}
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                {activeKpiModal === 'herd_count' && 'Herd Count Detail'}
+                {activeKpiModal === 'active_weight' && 'Herd Weight Registry'}
+                {activeKpiModal === 'avg_weight' && 'Average Weight Analytics'}
+                {activeKpiModal === 'weight_gain' && 'Weight Gain Leaders (ADG)'}
+                {activeKpiModal === 'expenses' && 'Detailed Expense Ledger'}
+                {activeKpiModal === 'sold' && 'Sales Registry Details'}
+                {activeKpiModal === 'revenue' && 'Revenue Summary'}
+                {activeKpiModal === 'net_position' && 'Profit & Loss Statement'}
+              </Text>
+              <TouchableOpacity onPress={() => setActiveKpiModal(null)} style={{ padding: 8 }}>
+                <Text style={{ fontSize: 18, color: '#64748b', fontWeight: 'bold' }}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Modal Body */}
+            <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
+              {activeKpiModal === 'herd_count' && renderHerdCountModal()}
+              {activeKpiModal === 'active_weight' && renderActiveWeightModal()}
+              {activeKpiModal === 'avg_weight' && renderAvgWeightModal()}
+              {activeKpiModal === 'weight_gain' && renderWeightGainModal()}
+              {activeKpiModal === 'expenses' && renderExpensesModal()}
+              {activeKpiModal === 'sold' && renderSalesModal(false)}
+              {activeKpiModal === 'revenue' && renderSalesModal(true)}
+              {activeKpiModal === 'net_position' && renderNetPositionModal()}
+            </ScrollView>
+          </View>
         </View>
       </Modal>
 
@@ -2209,5 +2643,176 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: 'bold',
     letterSpacing: 0.5,
+  },
+  modalSubSection: {
+    marginTop: 10,
+  },
+  modalStatsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  modalStatBox: {
+    flex: 1,
+    backgroundColor: '#f8fafc',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    padding: 12,
+    alignItems: 'center',
+    marginHorizontal: 4,
+  },
+  modalStatBoxFull: {
+    backgroundColor: '#f0fdf4',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+    padding: 16,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalStatBoxFullCompact: {
+    flex: 2,
+    backgroundColor: '#f8fafc',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    padding: 12,
+    alignItems: 'center',
+    marginHorizontal: 4,
+  },
+  modalStatVal: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#0f172a',
+  },
+  modalStatBoxFullCompactVal: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#0f172a',
+  },
+  modalStatLbl: {
+    fontSize: 11,
+    color: '#64748b',
+    marginTop: 2,
+    textAlign: 'center',
+  },
+  modalListHeader: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#334155',
+    marginBottom: 8,
+    marginTop: 8,
+  },
+  modalListItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    padding: 12,
+    marginBottom: 8,
+  },
+  modalListItemPlain: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#f8fafc',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+  },
+  modalItemTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#1e293b',
+  },
+  modalItemSub: {
+    fontSize: 12,
+    color: '#64748b',
+    marginTop: 2,
+  },
+  modalItemVal: {
+    fontSize: 14,
+    color: '#0f172a',
+  },
+  modalItemDesc: {
+    fontSize: 11,
+    color: '#64748b',
+    marginTop: 2,
+  },
+  modalItemBadge: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    overflow: 'hidden',
+  },
+  distributionContainer: {
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    padding: 16,
+  },
+  distRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  distLabel: {
+    width: 130,
+    fontSize: 12,
+    color: '#334155',
+  },
+  distBarBg: {
+    flex: 1,
+    height: 8,
+    backgroundColor: '#f1f5f9',
+    borderRadius: 4,
+    marginHorizontal: 12,
+    overflow: 'hidden',
+  },
+  distBarFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  distVal: {
+    width: 60,
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#0f172a',
+    textAlign: 'right',
+  },
+  plContainer: {
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    padding: 16,
+  },
+  plRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginVertical: 4,
+  },
+  plLabel: {
+    fontSize: 13,
+    color: '#334155',
+  },
+  plLabelSub: {
+    fontSize: 11,
+    color: '#64748b',
+    fontStyle: 'italic',
+  },
+  plVal: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#0f172a',
   },
 });
