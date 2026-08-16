@@ -127,6 +127,7 @@ export default function App() {
   const [activeKpiModal, setActiveKpiModal] = useState(null); // herd_count, active_weight, avg_weight, weight_gain, expenses, sold, revenue, net_position
   const [feedLogs, setFeedLogs] = useState([]);
   const [expenseLogs, setExpenseLogs] = useState({ expenses: [], medical: [] });
+  const [expenseTab, setExpenseTab] = useState('feed'); // feed, ops, medical
 
   // Initial Fetch & Local Cache Check
   useEffect(() => {
@@ -812,9 +813,9 @@ export default function App() {
 
       </SafeAreaView>
     );
-  // KPI Modal Detail Renderer Helpers
-  const [expenseTab, setExpenseTab] = useState('feed'); // feed, ops, medical
+  }
 
+  // KPI Modal Detail Renderer Helpers
   const renderHerdCountModal = () => {
     const activeList = cattle.filter(c => c.status === 'Active');
     const soldList = cattle.filter(c => c.status === 'Sold');
