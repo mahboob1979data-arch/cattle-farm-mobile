@@ -448,18 +448,19 @@ export default function App() {
   const submitExpense = async () => {
     if (loading) return;
     if (expenseForm.type === 'Feed') {
-      if (!expenseForm.quantityFed || !expenseForm.unitCost) {
-        showAlert('Error', 'Please fill Quantity and Unit Cost.');
+      if (!expenseForm.quantityFed || !expenseForm.amount) {
+        showAlert('Error', 'Please fill Quantity and Total Cost.');
         return;
       }
+      const calculatedUnitCost = Number(expenseForm.amount) / Number(expenseForm.quantityFed);
       const success = await handlePostRequest('feed/log', {
         date: expenseForm.date,
         feedType: expenseForm.feedType,
         quantityFed: expenseForm.quantityFed,
-        unitCost: expenseForm.unitCost,
+        unitCost: calculatedUnitCost.toString(),
         notes: expenseForm.notes
       }, 'Feed logged successfully');
-      if (success) expenseModalVisible(false);
+      if (success) setExpenseModalVisible(false);
     } else {
       if (!expenseForm.amount) {
         showAlert('Error', 'Please enter Amount.');
@@ -1031,7 +1032,7 @@ export default function App() {
                     <Text style={styles.modalItemSub}>{item.date || item.feedDate} • {item.quantity_fed || item.quantityFed} bags @ Rs. {item.unit_cost || item.unitCost}</Text>
                   </View>
                   <Text style={[styles.modalItemVal, { fontWeight: 'bold' }]}>
-                    Rs. {((item.quantity_fed || item.quantityFed) * (item.unit_cost || item.unitCost)).toLocaleString()}
+                    Rs. {Math.round((item.quantity_fed || item.quantityFed) * (item.unit_cost || item.unitCost)).toLocaleString()}
                   </Text>
                 </View>
               ))
@@ -1674,14 +1675,14 @@ export default function App() {
                     onChangeText={text => setExpenseForm({ ...expenseForm, quantityFed: text })}
                   />
 
-                  <Text style={styles.inputLabel}>Unit Cost (Rs./kg) *</Text>
+                  <Text style={styles.inputLabel}>Total Cost (Rs.) *</Text>
                   <TextInput
                     style={styles.textInput}
-                    placeholder="e.g. 85"
+                    placeholder="e.g. 135000"
                     placeholderTextColor="#94a3b8"
                     keyboardType="numeric"
-                    value={expenseForm.unitCost}
-                    onChangeText={text => setExpenseForm({ ...expenseForm, unitCost: text })}
+                    value={expenseForm.amount}
+                    onChangeText={text => setExpenseForm({ ...expenseForm, amount: text })}
                   />
                 </View>
               ) : (
