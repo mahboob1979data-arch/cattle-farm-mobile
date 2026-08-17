@@ -127,7 +127,7 @@ export default function App() {
   const [activeKpiModal, setActiveKpiModal] = useState(null); // herd_count, active_weight, avg_weight, weight_gain, expenses, sold, revenue, net_position
   const [feedLogs, setFeedLogs] = useState([]);
   const [expenseLogs, setExpenseLogs] = useState({ expenses: [], medical: [] });
-  const [expenseTab, setExpenseTab] = useState('feed'); // feed, ops, medical
+  const [expenseTab, setExpenseTab] = useState('purchase'); // purchase, feed, ops, medical
 
   // Initial Fetch & Local Cache Check
   useEffect(() => {
@@ -992,34 +992,64 @@ export default function App() {
   };
 
   const renderExpensesModal = () => {
-    const totalExpenses = kpis.totalFeedCost + kpis.totalOtherExpenses;
+    const totalExpenses = kpis.totalPurchaseCost + kpis.totalFeedCost + kpis.totalOtherExpenses;
     return (
       <View style={styles.modalSubSection}>
         <View style={styles.modalStatBoxFull}>
           <Text style={styles.modalStatVal}>Rs. {totalExpenses.toLocaleString()}</Text>
-          <Text style={styles.modalStatLbl}>Total Expenses (Feed + Operational + Medical)</Text>
+          <Text style={styles.modalStatLbl}>Total Expenses (Purchase + Feed + Ops + Medical)</Text>
         </View>
 
-        <View style={[styles.filterButtonRow, { marginBottom: 16, marginTop: 12 }]}>
+        <View style={[styles.filterButtonRow, { flexWrap: 'wrap', marginBottom: 16, marginTop: 12 }]}>
+          <TouchableOpacity
+            onPress={() => setExpenseTab('purchase')}
+            style={[styles.filterChip, expenseTab === 'purchase' && styles.activeFilterChip, { marginRight: 6, marginBottom: 6 }]}
+          >
+            <Text style={[styles.filterChipText, expenseTab === 'purchase' && styles.activeFilterChipText]}>Stock (Rs. {kpis.totalPurchaseCost.toLocaleString()})</Text>
+          </TouchableOpacity>
           <TouchableOpacity
             onPress={() => setExpenseTab('feed')}
-            style={[styles.filterChip, expenseTab === 'feed' && styles.activeFilterChip, { marginRight: 6 }]}
+            style={[styles.filterChip, expenseTab === 'feed' && styles.activeFilterChip, { marginRight: 6, marginBottom: 6 }]}
           >
             <Text style={[styles.filterChipText, expenseTab === 'feed' && styles.activeFilterChipText]}>Feed (Rs. {kpis.totalFeedCost.toLocaleString()})</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => setExpenseTab('ops')}
-            style={[styles.filterChip, expenseTab === 'ops' && styles.activeFilterChip, { marginRight: 6 }]}
+            style={[styles.filterChip, expenseTab === 'ops' && styles.activeFilterChip, { marginRight: 6, marginBottom: 6 }]}
           >
             <Text style={[styles.filterChipText, expenseTab === 'ops' && styles.activeFilterChipText]}>Ops (Rs. {expenseLogs.expenses ? expenseLogs.expenses.reduce((s, i) => s + Number(i.amount), 0).toLocaleString() : 0})</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => setExpenseTab('medical')}
-            style={[styles.filterChip, expenseTab === 'medical' && styles.activeFilterChip]}
+            style={[styles.filterChip, expenseTab === 'medical' && styles.activeFilterChip, { marginBottom: 6 }]}
           >
             <Text style={[styles.filterChipText, expenseTab === 'medical' && styles.activeFilterChipText]}>Medical (Rs. {expenseLogs.medical ? expenseLogs.medical.reduce((s, i) => s + Number(i.cost), 0).toLocaleString() : 0})</Text>
           </TouchableOpacity>
         </View>
+
+        {expenseTab === 'purchase' && (
+          <View>
+            <Text style={styles.modalListHeader}>Cattle Purchase Inventory Cost</Text>
+            {cattle.map((item, idx) => (
+              <TouchableOpacity
+                key={idx}
+                style={styles.modalListItem}
+                onPress={() => {
+                  setActiveKpiModal(null);
+                  setSelectedCattleTag(item.tagId);
+                }}
+              >
+                <View>
+                  <Text style={styles.modalItemTitle}>{item.tagId} ({item.breed})</Text>
+                  <Text style={styles.modalItemSub}>Purchased: {item.purchaseDate} • {item.purchaseWeight} kg</Text>
+                </View>
+                <Text style={[styles.modalItemVal, { fontWeight: 'bold' }]}>
+                  Rs. {item.purchasePrice ? item.purchasePrice.toLocaleString() : 0}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
 
         {expenseTab === 'feed' && (
           <View>
