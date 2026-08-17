@@ -1334,8 +1334,8 @@ export default function App() {
               <TouchableOpacity activeOpacity={0.7} style={styles.kpiCard} onPress={() => setActiveKpiModal('expenses')}>
                 <Image source={require('./assets/rs_sack.png')} style={{ width: 28, height: 28, marginBottom: 4 }} resizeMode="contain" />
                 <Text style={styles.kpiLabel}>Total Expenses</Text>
-                <Text style={styles.kpiValue}>Rs. {(kpis.totalFeedCost + kpis.totalOtherExpenses).toLocaleString()}</Text>
-                <Text style={styles.kpiSub}>Feed + Ops (Corrected)</Text>
+                <Text style={styles.kpiValue}>Rs. {(kpis.totalPurchaseCost + kpis.totalFeedCost + kpis.totalOtherExpenses).toLocaleString()}</Text>
+                <Text style={styles.kpiSub}>Purchase + Feed + Ops</Text>
               </TouchableOpacity>
 
               <TouchableOpacity activeOpacity={0.7} style={styles.kpiCard} onPress={() => setActiveKpiModal('sold')}>
