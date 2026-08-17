@@ -992,12 +992,12 @@ export default function App() {
   };
 
   const renderExpensesModal = () => {
-    const totalExpenses = kpis.totalPurchaseCost + kpis.totalFeedCost + kpis.totalOtherExpenses;
+    const totalExpenses = kpis.totalPurchaseCost + kpis.totalOtherExpenses;
     return (
       <View style={styles.modalSubSection}>
         <View style={styles.modalStatBoxFull}>
           <Text style={styles.modalStatVal}>Rs. {totalExpenses.toLocaleString()}</Text>
-          <Text style={styles.modalStatLbl}>Total Expenses (Purchase + Feed + Ops + Medical)</Text>
+          <Text style={styles.modalStatLbl}>Total Expenses (Stock + Ops + Medical)</Text>
         </View>
 
         <View style={[styles.filterButtonRow, { flexWrap: 'wrap', marginBottom: 16, marginTop: 12 }]}>
@@ -1006,12 +1006,6 @@ export default function App() {
             style={[styles.filterChip, expenseTab === 'purchase' && styles.activeFilterChip, { marginRight: 6, marginBottom: 6 }]}
           >
             <Text style={[styles.filterChipText, expenseTab === 'purchase' && styles.activeFilterChipText]}>Stock (Rs. {kpis.totalPurchaseCost.toLocaleString()})</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => setExpenseTab('feed')}
-            style={[styles.filterChip, expenseTab === 'feed' && styles.activeFilterChip, { marginRight: 6, marginBottom: 6 }]}
-          >
-            <Text style={[styles.filterChipText, expenseTab === 'feed' && styles.activeFilterChipText]}>Feed (Rs. {kpis.totalFeedCost.toLocaleString()})</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => setExpenseTab('ops')}
@@ -1051,26 +1045,7 @@ export default function App() {
           </View>
         )}
 
-        {expenseTab === 'feed' && (
-          <View>
-            <Text style={styles.modalListHeader}>Feed Consumption History</Text>
-            {feedLogs.length > 0 ? (
-              feedLogs.map((item, idx) => (
-                <View key={idx} style={styles.modalListItemPlain}>
-                  <View>
-                    <Text style={styles.modalItemTitle}>{item.feed_type || item.feedType}</Text>
-                    <Text style={styles.modalItemSub}>{item.date || item.feedDate} • {item.quantity_fed || item.quantityFed} bags @ Rs. {item.unit_cost || item.unitCost}</Text>
-                  </View>
-                  <Text style={[styles.modalItemVal, { fontWeight: 'bold' }]}>
-                    Rs. {Math.round((item.quantity_fed || item.quantityFed) * (item.unit_cost || item.unitCost)).toLocaleString()}
-                  </Text>
-                </View>
-              ))
-            ) : (
-              <Text style={styles.noHistoryText}>No feed logs found.</Text>
-            )}
-          </View>
-        )}
+
 
         {expenseTab === 'ops' && (
           <View>
@@ -1334,8 +1309,8 @@ export default function App() {
               <TouchableOpacity activeOpacity={0.7} style={styles.kpiCard} onPress={() => setActiveKpiModal('expenses')}>
                 <Image source={require('./assets/rs_sack.png')} style={{ width: 28, height: 28, marginBottom: 4 }} resizeMode="contain" />
                 <Text style={styles.kpiLabel}>Total Expenses</Text>
-                <Text style={styles.kpiValue}>Rs. {(kpis.totalPurchaseCost + kpis.totalFeedCost + kpis.totalOtherExpenses).toLocaleString()}</Text>
-                <Text style={styles.kpiSub}>Purchase + Feed + Ops</Text>
+                <Text style={styles.kpiValue}>Rs. {(kpis.totalPurchaseCost + kpis.totalOtherExpenses).toLocaleString()}</Text>
+                <Text style={styles.kpiSub}>Stock + Ops</Text>
               </TouchableOpacity>
 
               <TouchableOpacity activeOpacity={0.7} style={styles.kpiCard} onPress={() => setActiveKpiModal('sold')}>
